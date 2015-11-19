@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>leaflet-fractionalzoom-demo</title>
+<link rel="stylesheet" href="//cdn.leafletjs.com/leaflet/v1.0.0-beta.2/leaflet.css" />
+<script src="//cdn.leafletjs.com/leaflet/v1.0.0-beta.2/leaflet.js"></script>
+<style>
+body {
+	width: 100%;
+	height: 100%;
+	overflow: hidden;
+}
+
+#map {
+	width: 100%;
+	height: 100%;
+	position: absolute;
+	top: 0;
+	left: 0;
+	margin: 0;
+	padding: 0;
+}
+</style>
+<script>
+  (function(window) {
+    L.GridLayer.GeoJSON = L.GridLayer.extend({
+      initialize : function(url, grid, geojson) {
+        this._url = url;
+        this._geojson = L.geoJson(null, geojson);
+        this._done = [];
+        L.setOptions(this, grid);
+      },
+      onAdd : function(map) {
+        L.GridLayer.prototype.onAdd.call(this, map);
+        this._geojson.addTo(map);
+      },
+      createTile : function(coords) {
+        var url = L.Util.template(this._url, coords);
+        var lay = this._geojson;
+        var done = this._done;
+        if (done.indexOf(url) == -1) {
+          done.push(url);
+          var x = new XMLHttpRequest();
+          x.open("GET", url, true);
+          x.onreadystatechange = function() {
+            if (x.readyState == 4 && x.status == 200) {
+              lay.addData(JSON.parse(x.responseText));
+            }
+          };
+          x.send();
+        }
+        return L.DomUtil.create('div', 'leaflet-tile');
+      }
+    });
+    L.gridLayerGeoJSON = function(url, grid, geojson) {
+      return new L.GridLayer.GeoJSON(url, grid, geojson);
+    };
+  })(window);
+</script>
+</head>
+<body>
+	<div id="map"></div>
+	<script>
+    var map = L.map("map", {
+      zoom : 18,
+      minZoom : 17,
+      maxZoom : 21,
+      center : [ 37.93922, 139.0754518 ],
+      preferCanvas : true,
+      scrollWheelZoom : false
+    });
+
+    L.DomEvent.on(map.getContainer(), {
+      mousewheel : function(event) {
+        var ll = this.mouseEventToContainerPoint(event);
+        var delta = L.DomEvent.getWheelDelta(event);
+        this.setZoomAround(ll, this.getZoom() + delta / 10, {
+          animate : false
+        });
+      }
+    }, map);
+
+    L.gridLayerGeoJSON("http://cyberjapandata.gsi.go.jp/xyz/experimental_fgd/{z}/{x}/{y}.geojson", {
+      minZoom : 18,
+      maxZoom : 18,
+      attribution : '国土地理院'
+    }, {
+      pointToLayer : function(feature, latlng) {
+        return L.marker(latlng).bindPopup(JSON.stringify(feature.properties, null, "  "));
+      },
+      style : function(feature) {
+        return {
+          weight : 1
+        };
+      },
+      interactive : false
+    }).addTo(map);
+  </script>
+</body>
+</html>
